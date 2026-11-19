@@ -9,7 +9,7 @@ RUN apt-get update && \
     apt-get install --yes --no-install-recommends --no-install-suggests \
         curl wget \
         ripgrep jq fzf \
-        nano vim && \
+        nano vim tmux && \
     rm -rf /var/lib/apt/lists/*
 
 USER coder

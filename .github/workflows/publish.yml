@@ -1,0 +1,59 @@
+name: publish
+
+on:
+  workflow_dispatch:
+    inputs:
+      kind:
+        description: Extra moving tag (stable, nightly, ...)
+        type: string
+        default: stable
+      release:
+        description: Release number (defaults to RELEASE)
+        type: string
+      images:
+        description: Images to publish, space separated (defaults to all)
+        type: string
+  push:
+    tags:
+      - "release/*"
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Version
+        id: version
+        env:
+          RELEASE: ${{ inputs.release }}
+        run: |
+          args=()
+          if [[ -n $RELEASE ]]; then args+=(-r "$RELEASE"); fi
+          echo "value=$(bash scripts/version.sh "${args[@]}")" >>"$GITHUB_OUTPUT"
+
+      - name: Publish
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ steps.version.outputs.value }}
+          KIND: ${{ inputs.kind }}
+          IMAGES: ${{ inputs.images }}
+        run: |
+          args=(-V "$VERSION")
+          if [[ -n $KIND ]]; then args+=(-t "$KIND"); fi
+          read -ra list <<<"$IMAGES" || true
+          bash scripts/publish.sh "${args[@]}" "${list[@]}"
+
+      - name: Latest
+        env:
+          VERSION: ${{ steps.version.outputs.value }}
+          IMAGES: ${{ inputs.images }}
+        run: |
+          read -ra list <<<"$IMAGES" || true
+          bash scripts/latest.sh -V "$VERSION" "${list[@]}"
